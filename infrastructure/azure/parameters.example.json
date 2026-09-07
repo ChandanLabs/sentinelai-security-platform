@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "value": "centralindia" },
+    "nameSuffix": { "value": "replace-with-short-unique-suffix" },
+    "postgresAdminUser": { "value": "sentineladmin" },
+    "postgresAdminPassword": { "value": "DO-NOT-COMMIT" },
+    "postgresVersion": { "value": "16" },
+    "backendImage": { "value": "replace-with-acr-login-server/sentinel-backend:latest" },
+    "aiImage": { "value": "replace-with-acr-login-server/sentinel-ai:latest" },
+    "frontendImage": { "value": "" },
+    "jwtSecret": { "value": "DO-NOT-COMMIT" },
+    "frontendOrigin": { "value": "http://localhost:3000" }
+  }
+}

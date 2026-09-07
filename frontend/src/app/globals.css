@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #0B1020;
+    --foreground: #F8FAFC;
+    --card: #111827;
+    --card-foreground: #F8FAFC;
+    --popover: #111827;
+    --popover-foreground: #F8FAFC;
+    --primary: #6366F1;
+    --primary-foreground: #ffffff;
+    --secondary: #1e293b;
+    --secondary-foreground: #F8FAFC;
+    --muted: #1e293b;
+    --muted-foreground: #94A3B8;
+    --accent: #1e293b;
+    --accent-foreground: #F8FAFC;
+    --destructive: #EF4444;
+    --destructive-foreground: #ffffff;
+    --border: #1e293b;
+    --input: #1e293b;
+    --ring: #6366F1;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer components {
+  .panel { @apply rounded-xl border border-border bg-surface shadow-2xl shadow-black/10; }
+  .field { @apply w-full rounded-lg border border-border bg-background px-3 py-2.5 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20; }
+  .btn-primary { @apply rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50; }
+  .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted transition hover:text-text hover:border-primary/50; }
+  .nav-item { @apply flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted transition hover:bg-white/5 hover:text-text; }
+  .nav-item.active { @apply bg-primary/10 text-text ring-1 ring-primary/20; }
+  .sidebar { @apply fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-border bg-surface p-5 transition-transform md:translate-x-0; }
+  .sidebar.open { @apply translate-x-0; }
+  .topbar { @apply sticky top-0 z-30 flex h-20 items-center gap-4 border-b border-border bg-background/90 px-5 backdrop-blur-xl md:px-8; }
+  .badge { @apply inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide; }
+  .badge.critical,.badge.high,.badge.danger { @apply border-danger/40 bg-danger/10 text-red-300; }
+  .badge.medium,.badge.warning { @apply border-warning/40 bg-warning/10 text-amber-300; }
+  .badge.low,.badge.info,.badge.resolved,.badge.closed { @apply border-success/30 bg-success/10 text-green-300; }
+  .badge.open,.badge.acknowledged,.badge.investigating { @apply border-primary/30 bg-primary/10 text-indigo-300; }
+  table { @apply min-w-full text-left text-sm; }
+  th { @apply whitespace-nowrap border-b border-border px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted; }
+  td { @apply border-b border-border/70 px-5 py-3.5 align-middle; }
+  tbody tr { @apply transition hover:bg-white/[0.025]; }
+  .mono { @apply font-mono text-xs; }
+  .bg-grid { background-image: linear-gradient(rgba(148,163,184,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.05) 1px,transparent 1px); background-size:32px 32px; }
+}
