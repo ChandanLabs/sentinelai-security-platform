@@ -1,12 +1,20 @@
 version: '3.8'
 
+# ============================================================
+# SentinelAI — Docker Compose (local development & testing)
+# Usage:
+#   1. cp .env.example .env  and fill in real values
+#   2. docker compose up -d
+#   3. docker compose logs -f
+# ============================================================
+
 services:
+
+  # ── PostgreSQL ──────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
     container_name: sentinel-postgres
     restart: unless-stopped
-    env_file:
-      - .env.example
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -15,27 +23,15 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sentinel-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  backend:
-    build:
-      context: ./backend
-    container_name: sentinel-backend
-    restart: unless-stopped
-    env_file:
-      - .env.example
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      ai-service:
-        condition: service_started
-
+  # ── AI Anomaly Detection Service (FastAPI) ───────────────
   ai-service:
     build:
       context: ./ai-service
@@ -43,16 +39,56 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    networks:
+      - sentinel-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
+  # ── Spring Boot Backend ──────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+    container_name: sentinel-backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8000}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    networks:
+      - sentinel-net
+
+  # ── Next.js Frontend ─────────────────────────────────────
   frontend:
     build:
       context: ./frontend
     container_name: sentinel-frontend
     restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    networks:
+      - sentinel-net
 
 volumes:
   postgres_data:
+
+networks:
+  sentinel-net:
+    driver: bridge
