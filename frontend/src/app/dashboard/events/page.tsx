@@ -2,14 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Zap, Search, RefreshCw, Play, Square, Trash2 } from "lucide-react";
+import { Zap, Search, RefreshCw } from "lucide-react";
 import { api, type SecurityEvent } from "@/lib/api";
-import {
-  addSimulatedEvent,
-  clearSimulatedEvents,
-  getSimulatedEvents,
-  onSimulatedEventsUpdated,
-} from "@/lib/demo-stream";
 
 const SEV_CLASS: Record<string, string> = {
   INFO: "badge-info", LOW: "badge-low", MEDIUM: "badge-medium",
@@ -33,8 +27,6 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [sevFilter, setSevFilter] = useState("ALL");
-  const [streaming, setStreaming] = useState(false);
-  const [simulatedEvents, setSimulatedEvents] = useState<SecurityEvent[]>([]);
   const [error, setError] = useState("");
 
   async function load(showLoading = true) {
@@ -51,32 +43,12 @@ export default function EventsPage() {
   }
 
   useEffect(() => {
-    const updateSimulatedEvents = () => {
-      const current = getSimulatedEvents();
-      setSimulatedEvents(current);
-    };
-    const unsubscribe = onSimulatedEventsUpdated(updateSimulatedEvents);
-    setSimulatedEvents(getSimulatedEvents());
     void load();
     const interval = window.setInterval(() => void load(false), 5000);
     return () => {
-      unsubscribe();
       window.clearInterval(interval);
     };
   }, []);
-
-  useEffect(() => {
-    if (!streaming) return;
-    let sequence = 0;
-    addSimulatedEvent(sequence++);
-    const interval = window.setInterval(() => addSimulatedEvent(sequence++), 2000);
-    return () => window.clearInterval(interval);
-  }, [streaming]);
-
-  function clearDemoEvents() {
-    setStreaming(false);
-    clearSimulatedEvents();
-  }
 
   const filtered = events.filter(e => {
     const matchSev = sevFilter === "ALL" || e.severity === sevFilter;
@@ -108,32 +80,9 @@ export default function EventsPage() {
         </button>
       </div>
 
-      <section className="card flex flex-wrap items-center justify-between gap-4"
-        style={{ borderColor: "rgba(99,102,241,0.35)" }}>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="badge badge-medium">SIMULATED DATA</span>
-            {streaming && <span className="badge badge-low">STREAM RUNNING</span>}
-          </div>
-          <p className="text-sm font-semibold mt-2" style={{ color: "var(--text)" }}>
-            Brute-force investigation demo
-          </p>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            Generates synthetic browser-only events every 2 seconds; not Windows telemetry and not sent to the backend.
-          </p>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            {simulatedEvents.length} simulated event{simulatedEvents.length === 1 ? "" : "s"} stored in this browser
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setStreaming(value => !value)} className="btn-primary text-xs">
-            {streaming ? <><Square className="w-4 h-4" /> Stop stream</> : <><Play className="w-4 h-4" /> Start stream</>}
-          </button>
-          <button onClick={clearDemoEvents} className="btn-ghost text-xs" disabled={simulatedEvents.length === 0}>
-            <Trash2 className="w-4 h-4" /> Clear demo events
-          </button>
-        </div>
-      </section>
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        Events below are recorded from actions processed by the backend for your account. The browser does not generate or submit trusted detection events.
+      </p>
       {error && (
         <div role="alert" className="card flex items-center justify-between gap-4 text-sm"
           style={{ borderColor: "rgba(248,113,113,0.4)", color: "#fca5a5" }}>
@@ -170,8 +119,8 @@ export default function EventsPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>ID</th><th>Type</th><th>Source</th><th>Severity</th><th>Risk</th>
-                  <th>Detection rule</th><th>AI analysis</th><th>Source IP</th><th>User</th><th>Message</th><th>Timestamp</th>
+                  <th>ID</th><th>Activity</th><th>Target</th><th>Outcome</th><th>Severity</th>
+                  <th>Risk</th><th>Detection rule and evidence</th><th>Actor</th><th>AI analysis</th><th>Timestamp</th>
                 </tr>
               </thead>
               <tbody>
@@ -183,23 +132,21 @@ export default function EventsPage() {
                       </Link>
                     </td>
                     <td className="font-mono text-xs font-medium" style={{ color: "#93c5fd" }}>{ev.eventType}</td>
-                    <td><span className="badge badge-low">BACKEND</span></td>
+                    <td className="font-mono text-xs" style={{ color: "var(--muted)" }}>{ev.targetResource || "—"}</td>
+                    <td><span className={`badge ${ev.outcome === "DENIED" ? "badge-critical" : "badge-low"}`}>{ev.outcome || "—"}</span></td>
                     <td><span className={`badge ${SEV_CLASS[ev.severity]}`}>{ev.severity}</span></td>
                     <td><RiskBar score={ev.riskScore} /></td>
                     <td className="font-mono text-xs" style={{ color: ev.detectionRule ? "#fb923c" : "var(--muted)" }}>
-                      {ev.detectionRule || "none"}
+                      <span>{ev.detectionRule || "none"}</span>
+                      {ev.detectionEvidence && <span className="block font-sans mt-1">{ev.detectionEvidence}</span>}
                     </td>
+                    <td className="font-mono text-xs" style={{ color: "var(--text)" }}>{ev.actorId || ev.username}</td>
                     <td className="text-xs" style={{ color: "var(--muted)" }}>{ev.aiAnalysisStatus}</td>
-                    <td className="font-mono text-xs" style={{ color: "var(--muted)" }}>{ev.sourceIp}</td>
-                    <td className="text-xs max-w-[120px] truncate" title={ev.username} style={{ color: "var(--text)" }}>{ev.username}</td>
-                    <td className="text-xs max-w-[250px]" style={{ color: "var(--muted)" }}>
-                      <span className="line-clamp-2" title={ev.message}>{ev.message}</span>
-                    </td>
                     <td className="text-xs font-mono whitespace-nowrap" style={{ color: "var(--muted-2)" }}>{fmt(ev.timestamp)}</td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={11} className="text-center py-12" style={{ color: "var(--muted)" }}>
+                  <tr><td colSpan={10} className="text-center py-12" style={{ color: "var(--muted)" }}>
                     {error ? "Backend history could not be retrieved." : "No persisted events match your filter yet."}
                   </td></tr>
                 )}

@@ -53,10 +53,13 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
             ["Event type", event.eventType],
             ["Severity", event.severity],
             ["Server timestamp", new Date(event.timestamp).toLocaleString()],
-            ["Source IP", event.sourceIp],
-            ["Username", event.username],
+            ["Outcome", event.outcome || "Not available"],
+            ["Actor (pseudonymous)", event.actorId || event.username],
+            ["Session tag", event.sessionId || "Not available for this action"],
+            ["Target resource", event.targetResource || "Not applicable"],
             ["Risk score", String(event.riskScore)],
             ["Detection rule", event.detectionRule || "No deterministic rule matched"],
+            ["Rule evidence", event.detectionEvidence || "No detection rule matched."],
             ["AI analysis", event.aiAnalysisStatus || "Status not returned"],
           ].map(([label, value]) => (
             <div key={label}>

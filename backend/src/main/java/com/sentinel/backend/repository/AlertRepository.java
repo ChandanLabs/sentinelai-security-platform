@@ -10,8 +10,12 @@ import java.util.Collection;
 import java.util.List;
 
 public interface AlertRepository extends JpaRepository<AlertRecord, UUID> {
-    Page<AlertRecord> findAllByOrderByCreatedAtDesc(Pageable pageable);
-    long countByStatus(String status);
+    Page<AlertRecord> findAllByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
+    long countByOwnerIdAndStatus(UUID ownerId, String status);
     List<AlertRecord> findAllByEventIdIn(Collection<UUID> eventIds);
     java.util.Optional<AlertRecord> findFirstByEventIdOrderByCreatedAtDesc(UUID eventId);
+    java.util.Optional<AlertRecord> findFirstByOwnerIdAndDetectionRuleAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
+            UUID ownerId, String detectionRule, String status, java.time.Instant createdAt);
+    List<AlertRecord> findAllByOwnerIdAndCreatedAtBefore(UUID ownerId, java.time.Instant timestamp);
+    void deleteAllByOwnerId(UUID ownerId);
 }

@@ -10,7 +10,7 @@ const STATUS_CLASS: Record<string, string> = {
   RESOLVED: "badge-resolved", CLOSED: "badge-closed",
 };
 
-const LIFECYCLE = ["OPEN", "INVESTIGATING", "RESOLVED", "CLOSED"];
+const LIFECYCLE: Incident["status"][] = ["OPEN", "INVESTIGATING", "RESOLVED", "CLOSED"];
 
 function timeAgo(ts: string) {
   const diff = Date.now() - new Date(ts).getTime();
@@ -25,6 +25,7 @@ export default function IncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [updatingId, setUpdatingId] = useState("");
 
   async function load(showLoading = true) {
     if (showLoading) setLoading(true);
@@ -44,6 +45,21 @@ export default function IncidentsPage() {
     const interval = window.setInterval(() => void load(false), 5000);
     return () => window.clearInterval(interval);
   }, []);
+
+  async function advanceIncident(incident: Incident) {
+    const nextStatus = LIFECYCLE[LIFECYCLE.indexOf(incident.status) + 1];
+    if (!nextStatus) return;
+    setUpdatingId(incident.id);
+    setError("");
+    try {
+      await api.updateIncidentStatus(incident.id, nextStatus);
+      await load(false);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not update incident.");
+    } finally {
+      setUpdatingId("");
+    }
+  }
 
   const openCount = incidents.filter(i => i.status === "OPEN").length;
   const investigatingCount = incidents.filter(i => i.status === "INVESTIGATING").length;
@@ -143,8 +159,17 @@ export default function IncidentsPage() {
                   ))}
                 </div>
 
-                <div className="text-xs pt-2" style={{ color: "var(--muted)", borderTop: "1px solid var(--border)" }}>
-                  Read-only public demo. Status changes require the server-side demo key.
+                <div className="flex items-center justify-between gap-3 pt-2"
+                  style={{ borderTop: "1px solid var(--border)" }}>
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>
+                    Status transitions are recorded for your account.
+                  </span>
+                  {idx < LIFECYCLE.length - 1 && (
+                    <button className="btn-ghost text-xs" disabled={updatingId === inc.id}
+                      onClick={() => void advanceIncident(inc)}>
+                      {updatingId === inc.id ? "Updating…" : `Advance to ${LIFECYCLE[idx + 1]}`}
+                    </button>
+                  )}
                 </div>
               </div>
             );

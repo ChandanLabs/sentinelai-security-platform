@@ -35,6 +35,9 @@ public class IncidentRecord {
     @Column(name = "alert_id", nullable = false)
     private UUID alertId;
 
+    @Column(name = "owner_id")
+    private UUID ownerId;
+
     protected IncidentRecord() {
     }
 
@@ -49,6 +52,12 @@ public class IncidentRecord {
         this.alertId = alertId;
     }
 
+    public IncidentRecord(UUID id, String title, String severity, String status,
+                          Instant createdAt, Instant updatedAt, UUID alertId, UUID ownerId) {
+        this(id, title, severity, status, createdAt, updatedAt, alertId);
+        this.ownerId = ownerId;
+    }
+
     public UUID getId() { return id; }
     public String getTitle() { return title; }
     public String getSeverity() { return severity; }
@@ -56,6 +65,7 @@ public class IncidentRecord {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public UUID getAlertId() { return alertId; }
+    public UUID getOwnerId() { return ownerId; }
 
     public void setStatus(String status) { this.status = status; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }

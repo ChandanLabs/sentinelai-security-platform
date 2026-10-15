@@ -44,6 +44,21 @@ public class SecurityEvent {
     @Column(name = "ai_analysis_status", nullable = false, length = 32)
     private String aiAnalysisStatus;
 
+    @Column(name = "owner_id")
+    private UUID ownerId;
+
+    @Column(name = "session_tag", length = 36)
+    private String sessionTag;
+
+    @Column(name = "target_resource", length = 200)
+    private String targetResource;
+
+    @Column(length = 16)
+    private String outcome;
+
+    @Column(name = "detection_evidence", length = 500)
+    private String detectionEvidence;
+
     protected SecurityEvent() {
     }
 
@@ -63,6 +78,20 @@ public class SecurityEvent {
         this.aiAnalysisStatus = aiAnalysisStatus;
     }
 
+    public SecurityEvent(
+            UUID id, UUID ownerId, String eventType, String severity, Instant timestamp,
+            String sourceIp, String username, String sessionTag, String targetResource,
+            String outcome, String message, int riskScore, String detectionRule,
+            String detectionEvidence, String aiAnalysisStatus) {
+        this(id, eventType, severity, timestamp, sourceIp, username, message,
+                riskScore, detectionRule, aiAnalysisStatus);
+        this.ownerId = ownerId;
+        this.sessionTag = sessionTag;
+        this.targetResource = targetResource;
+        this.outcome = outcome;
+        this.detectionEvidence = detectionEvidence;
+    }
+
     public UUID getId() { return id; }
     public String getEventType() { return eventType; }
     public String getSeverity() { return severity; }
@@ -73,4 +102,9 @@ public class SecurityEvent {
     public int getRiskScore() { return riskScore; }
     public String getDetectionRule() { return detectionRule; }
     public String getAiAnalysisStatus() { return aiAnalysisStatus; }
+    public UUID getOwnerId() { return ownerId; }
+    public String getSessionTag() { return sessionTag; }
+    public String getTargetResource() { return targetResource; }
+    public String getOutcome() { return outcome; }
+    public String getDetectionEvidence() { return detectionEvidence; }
 }

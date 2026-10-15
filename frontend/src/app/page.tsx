@@ -1,69 +1,94 @@
 "use client";
 
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, ArrowRight } from "lucide-react";
+import { ArrowRight, Shield } from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      if (mode === "register") await api.register(username, password);
+      else await api.login(username, password);
+      router.push("/dashboard/workspace");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not sign in.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden"
+    <main className="min-h-screen flex items-center justify-center px-4 py-10"
       style={{ background: "var(--bg)" }}>
-
-      {/* Animated background grid */}
-      <div className="absolute inset-0 opacity-[0.03]"
-        style={{ backgroundImage: "linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-
-      {/* Glow orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl opacity-10"
-        style={{ background: "radial-gradient(circle, #6366f1, transparent)" }} />
-      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full blur-3xl opacity-8"
-        style={{ background: "radial-gradient(circle, #ef4444, transparent)" }} />
-
-      {/* Login card */}
-      <div className="relative w-full max-w-md mx-4">
-        <div className="card" style={{ border: "1px solid rgba(99,102,241,0.3)", boxShadow: "0 0 60px rgba(99,102,241,0.1), 0 25px 50px rgba(0,0,0,0.5)" }}>
-
-          {/* Logo */}
-          <div className="flex flex-col items-center gap-3 mb-8">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center relative"
-              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", boxShadow: "0 0 30px rgba(99,102,241,0.4)" }}>
-              <Shield className="w-8 h-8 text-white" />
-              <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-400 border-2"
-                style={{ borderColor: "var(--surface)", animation: "pulse 2s infinite" }} />
-            </div>
-            <div className="text-center">
-              <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
-                Sentinel<span style={{ color: "var(--primary)" }}>AI</span>
-              </h1>
-              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-                Intelligent Security Monitoring Platform
-              </p>
-            </div>
+      <section className="card w-full max-w-lg"
+        style={{ border: "1px solid rgba(99,102,241,0.3)", boxShadow: "0 0 60px rgba(99,102,241,0.1)" }}>
+        <div className="flex flex-col items-center gap-3 mb-7">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
+            <Shield className="w-7 h-7 text-white" />
           </div>
-
-          <p className="text-sm text-center leading-relaxed mb-5" style={{ color: "var(--muted)" }}>
-            Public interview demo. The console displays synthetic security activity;
-            do not submit real credentials or sensitive data.
-          </p>
-          <div className="mt-6 p-3 rounded-lg text-center"
-            style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              Dashboard data is public and read-only. Event submission and incident status
-              changes require a server-side demo key that is never sent to this page.
+          <div className="text-center">
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
+              Sentinel<span style={{ color: "var(--primary)" }}>AI</span>
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+              Application security activity demo
             </p>
           </div>
-
-          <button
-            id="open-demo-btn"
-            type="button"
-            onClick={() => router.push("/dashboard")}
-            className="btn-primary justify-center mt-5 py-3 w-full"
-          >
-            <span>Open public dashboard</span><ArrowRight className="w-4 h-4" />
-          </button>
         </div>
-      </div>
-    </div>
+
+        <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--muted)" }}>
+          Actions you perform in this sample workspace are recorded by the backend and shown in your
+          account-scoped security dashboard. This does not monitor your computer or other websites.
+        </p>
+
+        <div className="flex gap-2 mb-5" role="tablist" aria-label="Account action">
+          {(["login", "register"] as const).map(value => (
+            <button key={value} type="button" role="tab" aria-selected={mode === value}
+              onClick={() => { setMode(value); setError(""); }}
+              className={mode === value ? "btn-primary flex-1 justify-center" : "btn-ghost flex-1 justify-center"}>
+              {value === "login" ? "Sign in" : "Create account"}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={submit} className="flex flex-col gap-4">
+          <label className="text-sm" style={{ color: "var(--muted)" }}>
+            Username
+            <input className="input mt-1" autoComplete="username" required minLength={3} maxLength={32}
+              value={username} onChange={event => setUsername(event.target.value)} />
+          </label>
+          <label className="text-sm" style={{ color: "var(--muted)" }}>
+            Password
+            <input className="input mt-1" type="password"
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              required minLength={12} maxLength={72} value={password}
+              onChange={event => setPassword(event.target.value)} />
+            <span className="block text-xs mt-1">Use 12–72 printable characters without spaces. Passwords are hashed and never added to activity events.</span>
+          </label>
+          {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+          <button disabled={busy} type="submit" className="btn-primary justify-center py-3">
+            {busy ? "Please wait…" : mode === "login" ? "Sign in to workspace" : "Create isolated workspace"}
+            {!busy && <ArrowRight className="w-4 h-4" />}
+          </button>
+        </form>
+
+        <p className="text-xs mt-6 leading-relaxed" style={{ color: "var(--muted)" }}>
+          For demonstration only. Use a unique test password and synthetic content; this is not a
+          production identity provider. Each account has a separate document workspace and activity history.
+        </p>
+      </section>
+    </main>
   );
 }

@@ -10,10 +10,15 @@ import java.util.List;
 import java.util.UUID;
 
 public interface SecurityEventRepository extends JpaRepository<SecurityEvent, UUID> {
-    Page<SecurityEvent> findAllByOrderByTimestampDesc(Pageable pageable);
-    long countBySeverity(String severity);
-    long countByEventTypeAndSourceIpAndTimestampAfter(
-            String eventType, String sourceIp, Instant timestamp);
-    List<SecurityEvent> findAllByTimestampGreaterThanEqual(Instant timestamp);
-    List<SecurityEvent> findAllByMessageStartingWith(String messagePrefix);
+    Page<SecurityEvent> findAllByOwnerIdOrderByTimestampDesc(UUID ownerId, Pageable pageable);
+    long countByOwnerIdAndSeverity(UUID ownerId, String severity);
+    long countByOwnerIdAndEventTypeAndSourceIpAndTimestampAfter(
+            UUID ownerId, String eventType, String sourceIp, Instant timestamp);
+    long countByOwnerIdAndEventTypeAndUsernameAndTimestampAfter(
+            UUID ownerId, String eventType, String username, Instant timestamp);
+    List<SecurityEvent> findAllByOwnerIdAndTimestampGreaterThanEqual(UUID ownerId, Instant timestamp);
+    java.util.Optional<SecurityEvent> findByIdAndOwnerId(UUID id, UUID ownerId);
+    long countByOwnerId(UUID ownerId);
+    List<SecurityEvent> findAllByTimestampBefore(Instant timestamp);
+    void deleteAllByOwnerId(UUID ownerId);
 }

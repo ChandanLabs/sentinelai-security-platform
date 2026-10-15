@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Shield, LayoutDashboard, Zap, Bell, AlertTriangle,
+  Shield, LayoutDashboard, Zap, Bell, AlertTriangle, BriefcaseBusiness, LogOut,
   ChevronRight, Wifi, WifiOff, Menu, X
 } from "lucide-react";
 import { api } from "@/lib/api";
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/workspace", label: "Workspace", icon: BriefcaseBusiness },
   { href: "/dashboard/events", label: "Events", icon: Zap },
   { href: "/dashboard/alerts", label: "Alerts", icon: Bell },
   { href: "/dashboard/incidents", label: "Incidents", icon: AlertTriangle },
@@ -18,6 +19,8 @@ const NAV = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [username, setUsername] = useState("");
   const [online, setOnline] = useState<boolean | null>(null);
   const [aiStatus, setAiStatus] = useState("Checking AI service");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,6 +28,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     let active = true;
     const checkHealth = async () => {
+      try {
+        const session = await api.me();
+        if (!active) return;
+        setUsername(session.username);
+      } catch {
+        if (active) router.replace("/");
+        return;
+      }
       try {
         const health = await api.health();
         if (!active) return;
@@ -46,7 +57,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       active = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [router]);
+
+  async function signOut() {
+    try {
+      await api.logout();
+    } finally {
+      router.replace("/");
+    }
+  }
 
   const Sidebar = () => (
     <aside
@@ -76,7 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
         <p className="text-xs font-semibold uppercase tracking-widest px-3 mb-2" style={{ color: "var(--muted-2)" }}>
-          SOC Console
+          Account: {username || "checking…"}
         </p>
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
@@ -99,8 +118,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="px-5 py-4 text-xs leading-relaxed"
         style={{ borderTop: "1px solid var(--border)", color: "var(--muted)" }}>
-        Public, read-only demo · synthetic data only
+        Account-scoped sample workspace · server-recorded actions
       </div>
+      <button onClick={() => void signOut()} className="btn-ghost mx-4 mb-4 justify-center">
+        <LogOut className="w-4 h-4" /> Sign out
+      </button>
     </aside>
   );
 

@@ -1,7 +1,6 @@
 package com.sentinel.backend.service;
 
 import com.sentinel.backend.dto.AlertResponse;
-import com.sentinel.backend.dto.EventIngestRequest;
 import com.sentinel.backend.dto.EventResponse;
 import com.sentinel.backend.dto.IncidentResponse;
 import com.sentinel.backend.model.AlertRecord;
@@ -39,45 +38,71 @@ public class SecurityEventService {
     }
 
     @Transactional
-    public synchronized EventResponse ingest(EventIngestRequest request) {
+    public synchronized EventResponse recordActivity(
+            UUID ownerId, String eventType, String sourceIp, String actorId,
+            String sessionTag, String target, String outcome) {
         Instant now = Instant.now();
         String rule = "";
         String severity = "INFO";
-        int riskScore = 5;
-        int matchedEventCount = 1;
+        String evidence = "";
+        int relatedEvents = 1;
 
-        if ("login_failed".equals(request.eventType())) {
-            long failures = eventRepository.countByEventTypeAndSourceIpAndTimestampAfter(
-                    "login_failed", request.sourceIp(), now.minus(5, ChronoUnit.MINUTES)) + 1;
-            matchedEventCount = Math.toIntExact(failures);
-            severity = failures >= 5 ? "HIGH" : "MEDIUM";
-            riskScore = failures >= 5 ? 85 : (int) Math.min(65, 25 + failures * 10);
-            if (failures == 5) {
+        if ("login_failed".equals(eventType)) {
+            relatedEvents = Math.toIntExact(eventRepository
+                    .countByOwnerIdAndEventTypeAndUsernameAndTimestampAfter(
+                            ownerId, eventType, actorId, now.minus(5, ChronoUnit.MINUTES)) + 1);
+            if (relatedEvents >= 5) {
                 rule = "AUTH_BRUTE_FORCE";
+                severity = "HIGH";
+                evidence = relatedEvents + " failed sign-in attempts against this account in five minutes.";
+            } else {
+                severity = "MEDIUM";
             }
-        } else if ("privilege_escalation".equals(request.eventType())) {
-            severity = "CRITICAL";
-            riskScore = 95;
-            rule = "PRIVILEGE_ESCALATION";
-        } else if ("suspicious_command".equals(request.eventType())) {
+        } else if ("login_success".equals(eventType)) {
+            long failures = eventRepository.countByOwnerIdAndEventTypeAndUsernameAndTimestampAfter(
+                    ownerId, "login_failed", actorId, now.minus(5, ChronoUnit.MINUTES));
+            if (failures > 0) {
+                rule = "FAILED_THEN_SUCCESS";
+                severity = "HIGH";
+                relatedEvents = Math.toIntExact(failures + 1);
+                evidence = failures + " failed sign-in attempt(s) against this account preceded a successful sign-in within five minutes.";
+            }
+        } else if ("access_denied".equals(eventType)) {
+            relatedEvents = Math.toIntExact(eventRepository
+                    .countByOwnerIdAndEventTypeAndUsernameAndTimestampAfter(
+                            ownerId, eventType, actorId, now.minus(5, ChronoUnit.MINUTES)) + 1);
+            if (relatedEvents >= 3) {
+                rule = "REPEATED_DENIED_ACCESS";
+                severity = "HIGH";
+                evidence = relatedEvents + " denied resource requests by this account in five minutes.";
+            } else {
+                severity = "MEDIUM";
+            }
+        } else if ("privileged_access_denied".equals(eventType)) {
+            rule = "PRIVILEGED_ACCESS_DENIED";
             severity = "HIGH";
-            riskScore = 78;
-            rule = "SUSPICIOUS_COMMAND";
+            evidence = "A standard workspace account requested an administrative operation; the server denied it.";
+        } else if ("data_export".equals(eventType)) {
+            relatedEvents = Math.toIntExact(eventRepository
+                    .countByOwnerIdAndEventTypeAndUsernameAndTimestampAfter(
+                            ownerId, eventType, actorId, now.minus(10, ChronoUnit.MINUTES)) + 1);
+            if (relatedEvents >= 3) {
+                rule = "REPEATED_DATA_EXPORT";
+                severity = "MEDIUM";
+                evidence = relatedEvents + " export requests by this account in ten minutes.";
+            } else {
+                severity = "LOW";
+            }
         }
 
         SecurityEvent event = eventRepository.save(new SecurityEvent(
-                UUID.randomUUID(), request.eventType(), severity, now,
-                request.sourceIp(), request.username(), request.message(),
-                riskScore, rule, "NOT_CONFIGURED"));
-
-        boolean bruteForceThreshold = "AUTH_BRUTE_FORCE".equals(rule);
+                UUID.randomUUID(), ownerId, eventType, severity, now, sourceIp, actorId,
+                sessionTag, target, outcome, activityMessage(eventType, outcome),
+                riskScore(severity), rule, evidence, "NOT_CONFIGURED"));
         UUID alertId = null;
         UUID incidentId = null;
-        if (bruteForceThreshold || "HIGH".equals(severity) || "CRITICAL".equals(severity)) {
-            AlertIncidentLink link = createAlertAndIncident(
-                    event,
-                    rule.isBlank() ? request.eventType().toUpperCase() : rule,
-                    bruteForceThreshold ? matchedEventCount : 1);
+        if (!rule.isEmpty()) {
+            AlertIncidentLink link = createOrUpdateAlertIncident(event, ownerId, rule, relatedEvents);
             alertId = link.alertId();
             incidentId = link.incidentId();
         }
@@ -85,88 +110,150 @@ public class SecurityEventService {
     }
 
     @Transactional(readOnly = true)
-    public Page<EventResponse> listEvents(Pageable pageable) {
-        return eventRepository.findAllByOrderByTimestampDesc(pageable).map(EventResponse::from);
+    public Page<EventResponse> listEvents(UUID ownerId, Pageable pageable) {
+        return eventRepository.findAllByOwnerIdOrderByTimestampDesc(ownerId, pageable)
+                .map(EventResponse::from);
     }
 
     @Transactional(readOnly = true)
-    public EventResponse getEvent(UUID id) {
-        SecurityEvent event = eventRepository.findById(id)
+    public EventResponse getEvent(UUID ownerId, UUID id) {
+        SecurityEvent event = eventRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new java.util.NoSuchElementException("Event not found"));
         AlertRecord alert = alertRepository.findFirstByEventIdOrderByCreatedAtDesc(id).orElse(null);
         IncidentRecord incident = alert == null
-                ? null
-                : incidentRepository.findFirstByAlertId(alert.getId()).orElse(null);
-        return EventResponse.from(
-                event,
-                alert == null ? null : alert.getId(),
+                ? null : incidentRepository.findFirstByAlertId(alert.getId()).orElse(null);
+        return EventResponse.from(event, alert == null ? null : alert.getId(),
                 incident == null ? null : incident.getId());
     }
 
     @Transactional(readOnly = true)
-    public Page<AlertResponse> listAlerts(Pageable pageable) {
-        return alertRepository.findAllByOrderByCreatedAtDesc(pageable).map(AlertResponse::from);
+    public Page<AlertResponse> listAlerts(UUID ownerId, Pageable pageable) {
+        return alertRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId, pageable)
+                .map(AlertResponse::from);
     }
 
     @Transactional(readOnly = true)
-    public Page<IncidentResponse> listIncidents(Pageable pageable) {
-        return incidentRepository.findAllByOrderByCreatedAtDesc(pageable).map(IncidentResponse::from);
+    public Page<IncidentResponse> listIncidents(UUID ownerId, Pageable pageable) {
+        return incidentRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId, pageable)
+                .map(IncidentResponse::from);
     }
 
     @Transactional
-    public IncidentResponse updateIncidentStatus(UUID id, String status) {
-        IncidentRecord incident = incidentRepository.findById(id)
+    public IncidentResponse updateIncidentStatus(
+            UUID ownerId, String sessionTag, UUID id, String status) {
+        IncidentRecord incident = incidentRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new java.util.NoSuchElementException("Incident not found"));
-        int currentIndex = java.util.List.of("OPEN", "INVESTIGATING", "RESOLVED", "CLOSED")
-                .indexOf(incident.getStatus());
-        int requestedIndex = java.util.List.of("OPEN", "INVESTIGATING", "RESOLVED", "CLOSED")
-                .indexOf(status);
+        List<String> lifecycle = List.of("OPEN", "INVESTIGATING", "RESOLVED", "CLOSED");
+        int currentIndex = lifecycle.indexOf(incident.getStatus());
+        int requestedIndex = lifecycle.indexOf(status);
         if (requestedIndex != currentIndex + 1) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Incident status must advance exactly one lifecycle step");
         }
         incident.setStatus(status);
         incident.setUpdatedAt(Instant.now());
-        return IncidentResponse.from(incidentRepository.save(incident));
+        IncidentRecord saved = incidentRepository.save(incident);
+        recordActivity(ownerId, "incident_status_changed", "not-collected",
+                WorkspaceAuthService.actorId(ownerId), sessionTag,
+                "/incidents/" + id, "ALLOWED");
+        return IncidentResponse.from(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> dashboardStats(UUID ownerId) {
+        List<String> severities = List.of("INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL");
+        List<Map<String, Object>> breakdown = severities.stream()
+                .map(value -> Map.<String, Object>of(
+                        "severity", value,
+                        "count", eventRepository.countByOwnerIdAndSeverity(ownerId, value)))
+                .toList();
+        Instant start = Instant.now().minus(6, ChronoUnit.DAYS);
+        List<Map<String, Object>> trend = eventRepository
+                .findAllByOwnerIdAndTimestampGreaterThanEqual(ownerId, start)
+                .stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        event -> event.getTimestamp().truncatedTo(ChronoUnit.DAYS),
+                        java.util.stream.Collectors.averagingInt(SecurityEvent::getRiskScore)))
+                .entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> Map.<String, Object>of(
+                        "date", entry.getKey().toString(),
+                        "score", Math.round(entry.getValue())))
+                .toList();
+        return Map.of(
+                "totalEvents", eventRepository.countByOwnerId(ownerId),
+                "openAlerts", alertRepository.countByOwnerIdAndStatus(ownerId, "OPEN"),
+                "activeIncidents", incidentRepository.countByOwnerIdAndStatusIn(
+                        ownerId, List.of("OPEN", "INVESTIGATING")),
+                "criticalEvents", eventRepository.countByOwnerIdAndSeverity(ownerId, "CRITICAL"),
+                "riskTrend", trend,
+                "severityBreakdown", breakdown);
     }
 
     @Transactional
-    public Map<String, Integer> resetSyntheticData() {
-        List<SecurityEvent> syntheticEvents =
-                eventRepository.findAllByMessageStartingWith("SIMULATED DEMO EVENT");
-        List<UUID> eventIds = syntheticEvents.stream().map(SecurityEvent::getId).toList();
-        List<AlertRecord> syntheticAlerts = eventIds.isEmpty()
-                ? List.of()
-                : alertRepository.findAllByEventIdIn(eventIds);
-        List<UUID> alertIds = syntheticAlerts.stream().map(AlertRecord::getId).toList();
-        List<IncidentRecord> syntheticIncidents = alertIds.isEmpty()
-                ? List.of()
-                : incidentRepository.findAllByAlertIdIn(alertIds);
-
-        if (!syntheticIncidents.isEmpty()) {
-            incidentRepository.deleteAll(syntheticIncidents);
+    public void recordLoginFailure(UUID ownerId, String sourceIp, String actorId) {
+        if (ownerId != null) {
+            recordActivity(ownerId, "login_failed", sourceIp, actorId, null, "/auth/login", "DENIED");
         }
-        if (!syntheticAlerts.isEmpty()) {
-            alertRepository.deleteAll(syntheticAlerts);
-        }
-        if (!syntheticEvents.isEmpty()) {
-            eventRepository.deleteAll(syntheticEvents);
-        }
-        return Map.of(
-                "deletedEvents", syntheticEvents.size(),
-                "deletedAlerts", syntheticAlerts.size(),
-                "deletedIncidents", syntheticIncidents.size());
     }
 
-    private AlertIncidentLink createAlertAndIncident(SecurityEvent event, String rule, int eventCount) {
-        String title = rule.replace('_', ' ') + " — " + event.getSourceIp();
+    @Transactional
+    public void purgeExpiredData(int retentionDays) {
+        Instant cutoff = Instant.now().minus(retentionDays, ChronoUnit.DAYS);
+        List<SecurityEvent> oldEvents = eventRepository.findAllByTimestampBefore(cutoff);
+        List<UUID> eventIds = oldEvents.stream().map(SecurityEvent::getId).toList();
+        List<AlertRecord> oldAlerts = eventIds.isEmpty()
+                ? List.of() : alertRepository.findAllByEventIdIn(eventIds);
+        List<UUID> alertIds = oldAlerts.stream().map(AlertRecord::getId).toList();
+        List<IncidentRecord> oldIncidents = alertIds.isEmpty()
+                ? List.of() : incidentRepository.findAllByAlertIdIn(alertIds);
+        incidentRepository.deleteAll(oldIncidents);
+        alertRepository.deleteAll(oldAlerts);
+        eventRepository.deleteAll(oldEvents);
+    }
+
+    @Transactional
+    public void deleteOwnerData(UUID ownerId) {
+        incidentRepository.deleteAllByOwnerId(ownerId);
+        alertRepository.deleteAllByOwnerId(ownerId);
+        eventRepository.deleteAllByOwnerId(ownerId);
+    }
+
+    private AlertIncidentLink createOrUpdateAlertIncident(
+            SecurityEvent event, UUID ownerId, String rule, int eventCount) {
+        AlertRecord existing = alertRepository
+                .findFirstByOwnerIdAndDetectionRuleAndStatusAndCreatedAtAfterOrderByCreatedAtDesc(
+                        ownerId, rule, "OPEN", Instant.now().minus(10, ChronoUnit.MINUTES))
+                .orElse(null);
+        if (existing != null) {
+            existing.setEventCount(existing.getEventCount() + 1);
+            alertRepository.save(existing);
+            IncidentRecord incident = incidentRepository.findFirstByAlertId(existing.getId()).orElse(null);
+            return new AlertIncidentLink(
+                    existing.getId(), incident == null ? null : incident.getId());
+        }
+        String title = rule.replace('_', ' ') + " — " + event.getTargetResource();
         AlertRecord alert = alertRepository.save(new AlertRecord(
                 UUID.randomUUID(), title, event.getSeverity(), "OPEN", event.getTimestamp(),
-                event.getSourceIp(), eventCount, event.getId(), rule));
+                event.getSourceIp(), eventCount, event.getId(), rule, ownerId));
         IncidentRecord incident = incidentRepository.save(new IncidentRecord(
                 UUID.randomUUID(), title, event.getSeverity(), "OPEN",
-                event.getTimestamp(), event.getTimestamp(), alert.getId()));
+                event.getTimestamp(), event.getTimestamp(), alert.getId(), ownerId));
         return new AlertIncidentLink(alert.getId(), incident.getId());
+    }
+
+    private static int riskScore(String severity) {
+        return switch (severity) {
+            case "LOW" -> 25;
+            case "MEDIUM" -> 50;
+            case "HIGH" -> 75;
+            case "CRITICAL" -> 100;
+            default -> 0;
+        };
+    }
+
+    private static String activityMessage(String eventType, String outcome) {
+        return eventType.replace('_', ' ') + " " + outcome.toLowerCase(java.util.Locale.ROOT);
     }
 
     private record AlertIncidentLink(UUID alertId, UUID incidentId) {

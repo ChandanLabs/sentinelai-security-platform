@@ -41,6 +41,9 @@ public class AlertRecord {
     @Column(name = "detection_rule", nullable = false, length = 64)
     private String detectionRule;
 
+    @Column(name = "owner_id")
+    private UUID ownerId;
+
     protected AlertRecord() {
     }
 
@@ -58,6 +61,13 @@ public class AlertRecord {
         this.detectionRule = detectionRule;
     }
 
+    public AlertRecord(UUID id, String title, String severity, String status,
+                       Instant createdAt, String sourceIp, int eventCount,
+                       UUID eventId, String detectionRule, UUID ownerId) {
+        this(id, title, severity, status, createdAt, sourceIp, eventCount, eventId, detectionRule);
+        this.ownerId = ownerId;
+    }
+
     public UUID getId() { return id; }
     public String getTitle() { return title; }
     public String getSeverity() { return severity; }
@@ -67,4 +77,6 @@ public class AlertRecord {
     public int getEventCount() { return eventCount; }
     public UUID getEventId() { return eventId; }
     public String getDetectionRule() { return detectionRule; }
+    public UUID getOwnerId() { return ownerId; }
+    public void setEventCount(int eventCount) { this.eventCount = eventCount; }
 }

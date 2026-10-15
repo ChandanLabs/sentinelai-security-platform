@@ -1,23 +1,21 @@
 # Database
 
-PostgreSQL is the only implemented application persistence provider. Spring Data JPA creates/updates the demo schema with `spring.jpa.hibernate.ddl-auto=update`. A production schema migration tool is not configured.
+PostgreSQL is the only implemented persistence provider. Spring Data JPA uses `spring.jpa.hibernate.ddl-auto=update` by default for this demo; a production migration tool is not configured.
 
 ## Persisted records
 
-- **SecurityEvent** (`security_events`): server UUID, event type, assigned severity and timestamp, source IP, demo username/message, illustrative risk score, matched rule, and AI analysis status.
-- **AlertRecord** (`security_alerts`): generated title/severity/status, timestamp, source IP, linked event UUID, detection rule, and event count.
-- **IncidentRecord** (`security_incidents`): generated title/severity/status, creation/update timestamps, and linked alert UUID.
+- **WorkspaceUser**: account ID, normalized username, BCrypt password hash, and creation time.
+- **WorkspaceDocument**: owner account ID, sample title/content, and document ID.
+- **SecurityEvent** (`security_events`): owner account ID, server-generated event ID/time, event type, pseudonymous actor/session tag, target, outcome, severity, illustrative risk score, detection rule/evidence, and AI analysis status. Source IP is stored as `not-collected`.
+- **AlertRecord** (`security_alerts`): owner account ID, rule/title/severity/status, created/updated times, linked event ID, and grouped event count.
+- **IncidentRecord** (`security_incidents`): owner account ID, generated title/severity/status, timestamps, and linked alert ID.
 
-Event, alert, and incident records created by an ingestion request are written in the same Spring transaction. The synthetic-data reset removes marked events and their linked records in incident → alert → event order. It does not truncate unrelated tables or drop the database.
+Workspace activity is created by backend operations, not by browser-provided event payloads. Matching event/alert/incident writes occur in a Spring transaction. Repeated matching rules are grouped into an existing open alert/incident for the same owner and rule. Account deletion removes its documents, events, alerts, and incidents.
 
-Only the synthetic marker-prefixed request messages are accepted. Do not place credentials, API keys, or real company/user telemetry in the demo database.
+## Retention and local/hosted storage
 
-## Local and hosted persistence
-
+- A scheduled job runs daily at 03:15 server time and removes events older than `SENTINEL_DATA_RETENTION_DAYS` (30 days by default), along with linked alerts and incidents.
+- User accounts and sample documents are not removed by the retention job; users may delete their account from the workspace.
 - Docker Compose uses the named `postgres_data` volume; `docker compose down` preserves it. `docker compose down -v` deletes the entire local database.
-- Render uses linked managed PostgreSQL. Render free Postgres is limited and expires; it is not permanent hosted storage.
-- No JSONL/file-backed provider is implemented. Adding one is deferred rather than exposing ephemeral cloud filesystem data as durable history.
-
-## Not implemented
-
-User/organization/role tables, telemetry-source management, audit logs, retention jobs, backup tooling, multi-tenant isolation, and production schema migrations are not implemented.
+- Render uses managed PostgreSQL. Render's free database has capacity and expiration limits; see [10_DEPLOYMENT.md](./10_DEPLOYMENT.md).
+- No JSONL/file-backed provider, database backup tooling, or production schema-migration setup is implemented.

@@ -74,8 +74,10 @@ services:
       # Set to the deployed AI service HTTPS URL after the first Blueprint sync.
       - key: AI_SERVICE_URL
         sync: false
-      - key: DEMO_INGESTION_KEY
-        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: SENTINEL_DATA_RETENTION_DAYS
+        value: "30"
 
   # ── Next.js Frontend ─────────────────────────────────────
   - type: web

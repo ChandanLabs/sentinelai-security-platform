@@ -10,8 +10,11 @@ import java.util.List;
 import java.util.UUID;
 
 public interface IncidentRepository extends JpaRepository<IncidentRecord, UUID> {
-    Page<IncidentRecord> findAllByOrderByCreatedAtDesc(Pageable pageable);
-    long countByStatusIn(Collection<String> statuses);
+    Page<IncidentRecord> findAllByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
+    long countByOwnerIdAndStatusIn(UUID ownerId, Collection<String> statuses);
     List<IncidentRecord> findAllByAlertIdIn(Collection<UUID> alertIds);
     java.util.Optional<IncidentRecord> findFirstByAlertId(UUID alertId);
+    java.util.Optional<IncidentRecord> findByIdAndOwnerId(UUID id, UUID ownerId);
+    List<IncidentRecord> findAllByOwnerIdAndCreatedAtBefore(UUID ownerId, java.time.Instant timestamp);
+    void deleteAllByOwnerId(UUID ownerId);
 }

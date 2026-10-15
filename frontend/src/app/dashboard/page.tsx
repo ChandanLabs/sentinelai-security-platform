@@ -88,7 +88,7 @@ export default function DashboardPage() {
             {lastUpdate ? `Backend data updated ${lastUpdate.toLocaleTimeString()}` : "Waiting for backend data…"}
           </p>
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            Counts below come from persisted backend records; simulated browser events are not included.
+            This dashboard shows only activity recorded for your account. Risk score maps severity to 0/25/50/75/100; it is not a probability.
           </p>
         </div>
         <button onClick={() => void load()} className="btn-ghost" disabled={loading}>
