@@ -30,6 +30,7 @@ services:
     name: sentinel-ai
     runtime: docker
     dockerfilePath: ./ai-service/Dockerfile
+    dockerContext: ./ai-service
     rootDir: .
     plan: free
     region: oregon
@@ -43,6 +44,7 @@ services:
     name: sentinel-backend
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     rootDir: .
     plan: free
     region: oregon
@@ -84,6 +86,7 @@ services:
     name: sentinel-frontend
     runtime: docker
     dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
     rootDir: .
     plan: free
     region: oregon
