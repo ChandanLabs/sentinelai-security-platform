@@ -1,35 +1,49 @@
 # API Contract
 
-All backend APIs will be exposed under the `/api/v1/` prefix. 
+All routes use `/api/v1`. JSON names are camelCase. Event IDs are server-generated UUIDs; event timestamps are assigned by the backend. Paginated reads return `content`, `totalElements`, `totalPages`, and `number`.
 
-*Note: During Phase 1, ONLY health endpoints are implemented.*
+## Health
 
-## Planned Endpoint Groups
+- `GET /api/v1/health` — backend/database application status and AI service status. `aiInference` is `NOT_CONFIGURED`.
+- `GET /health` — AI service health. Returns `{"status":"UP","inference":"NOT_CONFIGURED"}`; no analysis endpoint is implemented.
 
-### Health and Diagnostics (Phase 1)
-- `GET /api/v1/health` - Application health check for backend.
-- `GET /health` - Application health check for AI service (FastAPI).
+## Events
 
-### Authentication (Future)
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/refresh`
+- `POST /api/v1/events` — validate and persist one synthetic event, evaluate deterministic rules, and create an associated alert/incident when a rule threshold is met.
+- `GET /api/v1/events?page=0&size=20` — list persisted events, newest first.
+- `GET /api/v1/events/{uuid}` — retrieve one persisted event.
 
-### Users and Roles (Future)
-- `GET /api/v1/users`
-- `POST /api/v1/users`
-- `GET /api/v1/users/{id}`
+Writes require `X-Demo-Ingestion-Key`. The request body must include:
 
-### Event Ingestion (Future)
-- `POST /api/v1/events` - Main entrypoint for log ingestion.
-- `GET /api/v1/events` - Retrieve historical events for dashboard.
+```json
+{
+  "eventType": "login_failed",
+  "sourceIp": "198.51.100.42",
+  "username": "admin-demo",
+  "message": "SIMULATED DEMO EVENT — synthetic failed-login attempt"
+}
+```
 
-### Alerts (Future)
-- `GET /api/v1/alerts`
-- `GET /api/v1/alerts/{id}`
-- `PUT /api/v1/alerts/{id}/status`
+All fields are validated. The message must start with `SIMULATED DEMO EVENT`; a real telemetry or authentication integration is not supported. The response includes `id`, `timestamp`, server-assigned `severity`/`riskScore`, `detectionRule`, `aiAnalysisStatus: NOT_CONFIGURED`, and linked `alertId`/`incidentId` values when a rule created those records. `GET /api/v1/events/{uuid}` returns the association IDs for inspecting the event's alert and incident.
 
-### Incidents (Future)
-- `GET /api/v1/incidents`
-- `POST /api/v1/incidents`
-- `GET /api/v1/incidents/{id}`
-- `PUT /api/v1/incidents/{id}`
+Implemented rules:
+
+- Five `login_failed` events from the same source IP within five minutes fire `AUTH_BRUTE_FORCE`.
+- `privilege_escalation` fires `PRIVILEGE_ESCALATION`.
+- `suspicious_command` fires `SUSPICIOUS_COMMAND`.
+
+The rule scores are illustrative demo values, not probabilities or validated model output.
+
+## Alerts, incidents, and dashboard
+
+- `GET /api/v1/alerts?page=0&size=20` — persisted alerts, newest first.
+- `GET /api/v1/incidents?page=0&size=20` — persisted incidents, newest first.
+- `PATCH /api/v1/incidents/{uuid}/status` — move one incident forward one lifecycle step (`OPEN` → `INVESTIGATING` → `RESOLVED` → `CLOSED`).
+- `GET /api/v1/dashboard/stats` — counts and severity/risk summaries calculated from PostgreSQL records.
+- `POST /api/v1/events/demo-data/reset` — remove only events whose message starts with the synthetic marker and their linked alerts/incidents.
+
+Incident status changes and reset also require `X-Demo-Ingestion-Key`. Read endpoints are public because the hosted dashboard is an intentionally open, read-only demo. The shared write key is not user authentication and must never be embedded in the frontend.
+
+## Not implemented
+
+User login/refresh, JWT, RBAC, audit logs, alert acknowledgements, AI inference, and real telemetry ingestion are not available. Routes documented as planned in earlier design material remain unimplemented unless listed above.

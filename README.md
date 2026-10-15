@@ -1,53 +1,66 @@
 # SentinelAI
 
-**Intelligent Security Monitoring & Anomaly Detection Platform**
+**Interview demo for security-event ingestion and rule-based alerting**
 
-## Project Description
-SentinelAI is a defensive cybersecurity monitoring platform designed to ingest application and security events, process them through deterministic rules and AI-based anomaly detection (Isolation Forest), calculate risk scores, and present alerts via a dark-themed analyst dashboard.
+SentinelAI is a small, synthetic-data-only demonstration of a security monitoring workflow. It is not an operational SIEM or a production security product.
 
-## Architecture Overview
-- **Frontend:** Next.js (TypeScript, Tailwind CSS, shadcn/ui)
-- **Backend Core:** Spring Boot (Java 21, Spring Security, Data JPA)
-- **AI Service:** FastAPI (Python, scikit-learn)
-- **Database:** PostgreSQL
-- **Infrastructure:** Docker Compose (Local), Azure (Cloud)
+## Architecture and data flow
 
-## Tech Stack
-- React, Next.js, Tailwind CSS
-- Java 21, Spring Boot 3
-- Python 3, FastAPI, Pandas, scikit-learn
-- PostgreSQL 15
-- Docker, Git
+- **Frontend:** Next.js dashboard with a same-origin API proxy.
+- **Backend:** Spring Boot API validates and timestamps demo events, persists them in PostgreSQL, evaluates deterministic rules, and creates linked alerts/incidents.
+- **AI service:** FastAPI health endpoint. Inference is **not implemented**; events report `aiAnalysisStatus: NOT_CONFIGURED`.
+- **Storage:** PostgreSQL only. No file-backed mode is implemented.
 
-## Local Setup
-Ensure you have Docker and Docker Compose installed.
+```text
+PowerShell demo client -- write key --> Spring Boot API
+                                          |-- PostgreSQL (events, alerts, incidents)
+                                          |-- AI service health check only
+Browser --> Next.js frontend --> server-side API proxy --> Spring Boot API
+```
 
-1. Clone the repository.
-2. The environment is pre-configured for local execution in `.env.example`.
-3. Start the application:
-   ```bash
-   docker compose up -d --build
-   ```
-4. Access endpoints:
-   - Frontend: `http://localhost:3000`
-   - Backend API Health: `http://localhost:8080/api/v1/health`
-   - AI Service Health: `http://localhost:8000/health`
+The dashboard is public and read-only. The event-ingest API, incident status updates, and synthetic-data reset require `DEMO_INGESTION_KEY`. Do not send real credentials, company data, or actual telemetry.
 
-## Project Structure
-- `frontend/` - Next.js UI dashboard
-- `backend/` - Spring Boot API and core business logic
-- `ai-service/` - FastAPI ML anomaly detection
-- `infrastructure/` - Docker and cloud deployment configs
-- `docs/` - Architectural and research documentation
-- `tests/` - System tests
-- `scripts/` - Automation scripts
+## Run locally
 
-## Development Phases
-- Phase 1: Foundation (CURRENT)
-- Phase 2: Authentication and RBAC
-- Phase 3: Core backend
-- Phase 4: Event and log ingestion
-- ...
+Prerequisites: running Docker Desktop and Docker Compose v2. Preserve an existing `.env`; otherwise copy the template and set a strong database password and random write key.
 
-## CURRENT STATUS
-PHASE 1 — FOUNDATION
+```powershell
+if (-not (Test-Path -LiteralPath ".env")) { Copy-Item .env.example .env }
+# Edit .env and replace the DB_PASSWORD and DEMO_INGESTION_KEY placeholders.
+docker compose up -d --build
+docker compose ps
+```
+
+Open:
+
+- Dashboard: <http://localhost:3000>
+- Backend health: <http://localhost:8080/api/v1/health>
+- AI health: <http://localhost:8000/health>
+
+`docker compose down` stops the services but keeps the database volume. `docker compose down -v` deletes the entire local database; do not use it as a routine demo reset.
+
+## Run the live scenario
+
+The copy-paste-ready PowerShell flow, response checks, API examples, incident lifecycle actions, and safe synthetic-data reset are in [09_DEMO_SCRIPT.md](./09_DEMO_SCRIPT.md). It generates events marked `SIMULATED DEMO EVENT`, verifies their server IDs/timestamps/rule outcomes, and uses the protected API. The dashboard polls the backend so persisted events appear without refreshing the page.
+
+The Events page also retains a separate browser-only synthetic stream for visual demonstration. Those localStorage rows are clearly labelled and are not backend events, are not analyzed, and are not persisted in PostgreSQL.
+
+## Public deployment
+
+See [10_DEPLOYMENT.md](./10_DEPLOYMENT.md) for the Render Blueprint steps, required environment variables, public access model, storage behavior, free-tier caveats, and limitations. The Render free Postgres database has an expiration period and is not permanent storage.
+
+## Repository layout
+
+- `frontend/` — dashboard and runtime backend proxy
+- `backend/` — Spring Boot API, PostgreSQL entities/repositories, rules, and tests
+- `ai-service/` — FastAPI health-only service
+- `docker-compose.yml` — local PostgreSQL and three application services
+- `render.yaml` — Render Blueprint
+- `09_DEMO_SCRIPT.md` — repeatable demo workflow
+- `10_DEPLOYMENT.md` — local and hosted deployment instructions
+
+## Current scope
+
+Implemented: synthetic event ingestion and validation, server-side event IDs/timestamps, PostgreSQL persistence, three deterministic event rules, linked alerts/incidents, read APIs, event details, dashboard metrics, polling, protected incident lifecycle updates, and a reset limited to marked synthetic events.
+
+Not implemented: user accounts, authentication/JWT/RBAC, rate limiting, audit logs, a real telemetry collector, AI inference, production migrations, multi-tenant data isolation, or a file-based storage option. Use synthetic information only and treat every public read API as publicly accessible.

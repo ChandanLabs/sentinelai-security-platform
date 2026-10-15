@@ -1,55 +1,37 @@
 # Architecture Overview
 
-## High-Level Architecture
-
-The SentinelAI platform follows a modular, microservice-inspired architecture separating the core business logic from machine learning workloads, while providing a modern frontend interface.
-
-```mermaid
-flowchart TD
-    User([User/Analyst]) --> |HTTPS| Frontend[Next.js Frontend]
-    Frontend --> |REST API| Backend[Spring Boot Backend]
-    
-    Backend --> |SQL| DB[(PostgreSQL)]
-    Backend --> |REST / HTTP| AIService[Python FastAPI ML Service]
-```
-
-## Frontend Architecture
-- **Framework:** Next.js with App Router / Pages (based on current standard).
-- **Language:** TypeScript.
-- **Styling:** Tailwind CSS + shadcn/ui.
-- **Role:** Renders the dark-themed analyst console, communicates via REST to the Spring Boot backend.
-
-## Backend Architecture
-- **Framework:** Spring Boot (Java).
-- **Role:** Handles authentication, business logic, event ingestion routing, rule-based detection, and coordination with the AI service.
-- **Layers:** 
-  - Controllers (REST endpoints)
-  - Services (Business logic)
-  - Repositories (Data access)
-
-## AI Service Architecture
-- **Framework:** FastAPI (Python).
-- **Role:** Exposes endpoints for real-time anomaly detection scoring and model training/management.
-- **Core ML:** scikit-learn (Isolation Forest), Pandas.
-
-## Database Conceptual Relationship
-- **Engine:** PostgreSQL.
-- **Purpose:** Centralized storage for structured data (Users, Events, Alerts, Incidents).
-- (Refer to `03_DATABASE.md` for entities).
-
-## Event Processing Flow
+SentinelAI is currently a three-service, synthetic-data demo backed by PostgreSQL:
 
 ```mermaid
 flowchart LR
-    Ingestion[Event Ingestion API] --> Normalization
-    Normalization --> RuleEngine[Rule-based Detection]
-    RuleEngine --> AIEngine[AI Anomaly Detection]
-    AIEngine --> RiskScoring[Risk Score Calculation]
-    RiskScoring --> Alerting{Threshold Exceeded?}
-    Alerting -->|Yes| Alert[Generate Alert & Incident]
-    Alerting -->|No| Store[Store Event]
+    Writer[PowerShell demo client] -->|HTTPS + server-side demo key| API[Spring Boot API]
+    Browser[Public read-only dashboard] --> Frontend[Next.js frontend and API proxy]
+    Frontend -->|same-origin /api requests| API
+    API --> DB[(PostgreSQL)]
+    API -->|health check only| AI[FastAPI AI service]
 ```
 
-## Deployment Architecture
-- **Local Development:** Managed via `docker-compose.yml` to orchestrate Postgres, Backend, AI Service, and Frontend locally.
-- **Cloud (Future):** Microsoft Azure (Primary target), leveraging containerized services.
+## Frontend
+
+- Next.js App Router dashboard.
+- A server-side route handler proxies browser `/api/*` requests to the runtime-configured `BACKEND_URL`. The backend address is not embedded in public browser configuration.
+- Dashboard reads persisted events, alerts, incidents, and statistics. It polls for updates. The separately labelled browser demo stream is localStorage-only and is not sent to the backend.
+- The public dashboard has no user authentication and must display only synthetic data.
+
+## Backend
+
+- Spring Boot 3, Java 21, Spring Data JPA, and PostgreSQL.
+- `POST /api/v1/events` requires `X-Demo-Ingestion-Key`, validates synthetic-only payloads, assigns the UUID and timestamp, applies deterministic event-type rules, and commits event/alert/incident records transactionally.
+- Read APIs are public. Incident lifecycle changes and the synthetic-data reset require the same shared server-side demo key.
+- This is a single-instance demo implementation; no distributed event-threshold coordination, account isolation, rate limiting, or database migrations are implemented.
+
+## AI service
+
+- FastAPI currently exposes only `/health`.
+- The backend checks health and reports availability separately from inference. Event records use `aiAnalysisStatus: NOT_CONFIGURED`; no model is invoked and no anomaly result is fabricated.
+
+## Storage and deployment
+
+- PostgreSQL is the only implemented application storage provider.
+- Docker Compose persists local data in a named PostgreSQL volume.
+- The Render Blueprint links to managed PostgreSQL and deploys the three Docker services. Hosted file storage is not used. Render free web-service filesystems are ephemeral, and the free PostgreSQL plan expires; details are in [10_DEPLOYMENT.md](./10_DEPLOYMENT.md).

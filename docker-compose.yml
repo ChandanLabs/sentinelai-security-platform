@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ============================================================
 # SentinelAI — Docker Compose (local development & testing)
 # Usage:
@@ -13,7 +11,6 @@ services:
   # ── PostgreSQL ──────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
-    container_name: sentinel-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -35,14 +32,13 @@ services:
   ai-service:
     build:
       context: ./ai-service
-    container_name: sentinel-ai-service
     restart: unless-stopped
     ports:
       - "8000:8000"
     networks:
       - sentinel-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -51,7 +47,6 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: sentinel-backend
     restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
@@ -61,6 +56,7 @@ services:
       AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8000}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      DEMO_INGESTION_KEY: ${DEMO_INGESTION_KEY:-}
     ports:
       - "8080:8080"
     depends_on:
@@ -75,10 +71,9 @@ services:
   frontend:
     build:
       context: ./frontend
-    container_name: sentinel-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8080
+      BACKEND_URL: http://backend:8080
     ports:
       - "3000:3000"
     depends_on:

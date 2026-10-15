@@ -4,9 +4,9 @@
 #
 # Services deployed:
 #   1. sentinel-db        → Managed PostgreSQL (Render Postgres)
-#   2. sentinel-ai        → FastAPI AI service  (Docker, private)
-#   3. sentinel-backend   → Spring Boot API     (Docker, private)
-#   4. sentinel-frontend  → Next.js dashboard   (Docker, public)
+#   2. sentinel-ai        → FastAPI health-only service (Docker, public health endpoint)
+#   3. sentinel-backend   → Spring Boot API (Docker)
+#   4. sentinel-frontend  → Next.js dashboard (Docker)
 #
 # How to deploy:
 #   1. Push this repo to GitHub.
@@ -33,8 +33,6 @@ services:
     rootDir: .
     plan: free
     region: oregon
-    # Internal only — the backend calls this service by its private URL
-    # Render private URL format: https://sentinel-ai:8000 (internal)
     healthCheckPath: /health
     envVars:
       - key: PORT
@@ -50,13 +48,19 @@ services:
     region: oregon
     healthCheckPath: /api/v1/health
     envVars:
-      # Datasource — Render injects DATABASE_URL automatically for linked DB
-      - key: SPRING_DATASOURCE_URL
+      # The application builds a JDBC URL from the linked database host/port/name.
+      - key: DB_HOST
         fromDatabase:
           name: sentinel-db
-          property: connectionString
-          # Render gives a JDBC-style URL; Spring Boot needs jdbc:postgresql://...
-          # Use the helper below or set manually in dashboard.
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: sentinel-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: sentinel-db
+          property: database
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: sentinel-db
@@ -67,15 +71,11 @@ services:
           property: password
       - key: SPRING_JPA_HIBERNATE_DDL_AUTO
         value: update             # use "validate" once schema is stable
-      # AI service private URL — Render private services are reachable as:
-      # http://sentinel-ai:8000  (within the same Render region/account)
+      # Set to the deployed AI service HTTPS URL after the first Blueprint sync.
       - key: AI_SERVICE_URL
-        value: http://sentinel-ai:8000
-      # JWT — set these as secret env vars in the Render dashboard
-      - key: JWT_SECRET
-        sync: false               # you enter this manually in the dashboard
-      - key: JWT_EXPIRATION_MS
-        value: "86400000"
+        sync: false
+      - key: DEMO_INGESTION_KEY
+        generateValue: true
 
   # ── Next.js Frontend ─────────────────────────────────────
   - type: web
@@ -87,7 +87,6 @@ services:
     region: oregon
     healthCheckPath: /
     envVars:
-      # The public URL of your backend — fill in after sentinel-backend is deployed
-      # Example: https://sentinel-backend.onrender.com
-      - key: NEXT_PUBLIC_API_URL
-        sync: false               # enter the backend's public URL in the dashboard
+      # Runtime server-side proxy target. Set after the backend is deployed.
+      - key: BACKEND_URL
+        sync: false

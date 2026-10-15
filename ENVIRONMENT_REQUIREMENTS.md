@@ -1,31 +1,32 @@
 # Environment Requirements
 
-The following dependencies are missing or misconfigured on the host machine. These must be installed or started to run the SentinelAI Phase 1 verification natively or via Docker.
+## Docker workflow (recommended)
 
-## 1. Node.js
-- **Missing Dependency:** Node.js and npm
-- **Required Version:** v18.x or v20.x (LTS)
-- **Why the project needs it:** Required to build and run the Next.js frontend application natively.
-- **Official Installation Method:** Download the Windows Installer from [nodejs.org](https://nodejs.org/).
-- **Verification Command:** `node --version` and `npm --version`
+Docker supplies the project runtimes inside the containers. The host needs:
 
-## 2. Java Development Kit (JDK)
-- **Missing Dependency:** Java 21 JDK (Currently installed version is 1.8)
-- **Required Version:** Java 21
-- **Why the project needs it:** Required to compile and run the Spring Boot core backend natively.
-- **Official Installation Method:** Download from [Adoptium (Eclipse Temurin)](https://adoptium.net/) or Microsoft Build of OpenJDK.
-- **Verification Command:** `java -version` and `javac -version` (should show 21)
+- Docker Desktop with Docker Compose v2 installed and the Docker Engine running.
+- At least 4 GB of memory available to Docker.
+- A local `.env` with a strong PostgreSQL password and demo write key.
 
-## 3. Python
-- **Missing Dependency:** Python and pip
-- **Required Version:** Python 3.11
-- **Why the project needs it:** Required to run the FastAPI AI service and machine learning libraries natively.
-- **Official Installation Method:** Download the Windows Installer from [python.org](https://www.python.org/downloads/) (Ensure "Add python.exe to PATH" is checked).
-- **Verification Command:** `python --version` and `pip --version`
+The host does not need Node.js, Java, or Python installed just to start the Compose deployment. In this workspace Docker Engine 28.4.0 was available and running when the updated services were built.
 
-## 4. Docker Engine (Daemon)
-- **Missing Dependency:** Docker Desktop Engine is installed but NOT running.
-- **Required Version:** Any recent version (currently 28.4.0 is installed).
-- **Why the project needs it:** Required to orchestrate PostgreSQL and the application containers via `docker-compose.yml`.
-- **Official Installation Method:** Start the "Docker Desktop" application from the Windows Start Menu and wait for the engine to initialize.
-- **Verification Command:** `docker info` (should output server details without errors).
+## Native development tools
+
+Only install/use these when running a service outside Docker:
+
+- Node.js 20 LTS for the Next.js frontend.
+- JDK 21 for the Spring Boot backend.
+- Python 3.11 for the FastAPI AI service.
+
+Use the existing Python virtual environment for native AI-service development; do not create another one if the project environment is already configured. Docker-based checks use the Python 3.11 image and do not depend on the host virtual environment.
+
+## Verify local containers
+
+```powershell
+docker info
+docker compose ps
+Invoke-RestMethod http://localhost:8080/api/v1/health
+Invoke-RestMethod http://localhost:8000/health
+```
+
+The AI service response states `inference: NOT_CONFIGURED`: installing machine-learning packages does not mean a model is trained or running.

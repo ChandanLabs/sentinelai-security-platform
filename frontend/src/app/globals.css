@@ -2,36 +2,116 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @layer base {
   :root {
-    --background: #0B1020;
-    --foreground: #F8FAFC;
-    --card: #111827;
-    --card-foreground: #F8FAFC;
-    --popover: #111827;
-    --popover-foreground: #F8FAFC;
-    --primary: #6366F1;
-    --primary-foreground: #ffffff;
-    --secondary: #1e293b;
-    --secondary-foreground: #F8FAFC;
-    --muted: #1e293b;
-    --muted-foreground: #94A3B8;
-    --accent: #1e293b;
-    --accent-foreground: #F8FAFC;
-    --destructive: #EF4444;
-    --destructive-foreground: #ffffff;
-    --border: #1e293b;
-    --input: #1e293b;
-    --ring: #6366F1;
-    --radius: 0.5rem;
+    --bg: #080d1a;
+    --surface: #0e1628;
+    --surface-2: #131e35;
+    --border: #1e2d4a;
+    --primary: #6366f1;
+    --primary-glow: rgba(99,102,241,0.2);
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --danger-glow: rgba(239,68,68,0.15);
+    --text: #e8edf5;
+    --muted: #64748b;
+    --muted-2: #475569;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
+@layer components {
+  /* ── Severity badges ─────────────────────── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tracking-wide uppercase;
   }
-  body {
-    @apply bg-background text-foreground font-sans;
+  .badge-info    { @apply bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30; }
+  .badge-low     { @apply bg-green-500/15 text-green-400 ring-1 ring-green-500/30; }
+  .badge-medium  { @apply bg-yellow-500/15 text-yellow-400 ring-1 ring-yellow-500/30; }
+  .badge-high    { @apply bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/30; }
+  .badge-critical{ @apply bg-red-500/15 text-red-400 ring-1 ring-red-500/30 animate-pulse-slow; }
+
+  /* Status badges */
+  .badge-open        { @apply bg-red-500/15 text-red-400 ring-1 ring-red-500/30; }
+  .badge-ack         { @apply bg-yellow-500/15 text-yellow-400 ring-1 ring-yellow-500/30; }
+  .badge-investigating { @apply bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30; }
+  .badge-resolved    { @apply bg-green-500/15 text-green-400 ring-1 ring-green-500/30; }
+  .badge-closed      { @apply bg-slate-500/15 text-slate-400 ring-1 ring-slate-500/30; }
+
+  /* ── Cards ───────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+
+  /* ── Stat card ───────────────────────────── */
+  .stat-card {
+    @apply card flex flex-col gap-2 hover:border-indigo-500/40 transition-colors duration-300;
+  }
+
+  /* ── Table ───────────────────────────────── */
+  .data-table { @apply w-full text-sm; }
+  .data-table thead { border-bottom: 1px solid var(--border); }
+  .data-table th { @apply text-left py-3 px-4 text-xs font-semibold uppercase tracking-widest; color: var(--muted); }
+  .data-table td { @apply py-3 px-4 border-b; border-color: var(--border); }
+  .data-table tbody tr { @apply transition-colors duration-150; }
+  .data-table tbody tr:hover { background: var(--surface-2); }
+  .data-table tbody tr:last-child td { @apply border-0; }
+
+  /* ── Buttons ─────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer;
+  }
+  .btn-primary {
+    @apply btn bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95;
+    box-shadow: 0 0 20px rgba(99,102,241,0.3);
+  }
+  .btn-ghost {
+    @apply btn text-slate-400 hover:text-white hover:bg-white/5;
+  }
+  .btn-danger {
+    @apply btn bg-red-600/20 text-red-400 ring-1 ring-red-500/30 hover:bg-red-600/30;
+  }
+
+  /* ── Input ───────────────────────────────── */
+  .input {
+    @apply w-full rounded-lg px-4 py-2.5 text-sm text-white outline-none transition-all duration-200;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+  .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+  .input::placeholder { color: var(--muted); }
+
+  /* ── Risk score bar ──────────────────────── */
+  .risk-bar { @apply h-1.5 rounded-full bg-slate-700 overflow-hidden; }
+  .risk-fill { @apply h-full rounded-full transition-all duration-500; }
+}
+
+@layer utilities {
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4,0,0.6,1) infinite;
+  }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  .glow-text { text-shadow: 0 0 20px rgba(99,102,241,0.5); }
+  .grid-dashboard {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
   }
 }

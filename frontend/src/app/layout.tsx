@@ -1,22 +1,15 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
-
 export const metadata: Metadata = {
-  title: "SentinelAI",
-  description: "Intelligent Security Monitoring & Anomaly Detection Platform",
+  title: "SentinelAI — Security Monitoring Platform",
+  description: "Intelligent Security Monitoring & Anomaly Detection Platform by Chandan Kumar Sah Teli",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-background text-text`}>{children}</body>
+    <html lang="en">
+      <body>{children}</body>
     </html>
   );
 }
